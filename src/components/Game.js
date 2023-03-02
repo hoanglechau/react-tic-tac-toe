@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from "react";
 import Board from "./Board";
+import History from "./History";
 
 function Game() {
-  const [squares, setSquares] = useState(Array(9).fill(null));
   const [xIsNext, setXIsNext] = useState(true);
   const [winner, setWinner] = useState(null);
+  const [history, setHistory] = useState([
+    {
+      squares: Array(9).fill(null),
+    },
+  ]);
+  const [stepNumber, setStepNumber] = useState(0);
 
-  //Declaring a Winner
+  // Declaring a Winner
   useEffect(() => {
-    // calculateWinner returns either the winner or null
-    const gameWinner = calculateWinner(squares);
-    setWinner((prevWinner) => gameWinner);
-  }, [squares]); // this side effect will run every time there is a change to squares
+    // Run calculateWinner on the most current squares. This function returns either the winner or null
+    const newWinner = calculateWinner(history[history.length - 1].squares);
+    setWinner(newWinner);
+  }, [history]); // this side effect will run every time there is a change to history
 
-  //function to check if a player has won.
-  //If a player has won, we can display text such as “Winner: X” or “Winner: O”.
-  //Input: squares: given an array of 9 squares:'X', 'O', or null.
+  // Function to check if a player has won.
+  // If a player has won, we can display text such as “Winner: X” or “Winner: O”.
+  // Input: squares: given an array of 9 squares:'X', 'O', or null.
   const calculateWinner = (squares) => {
     // This array contains the values which determine that a player has won
     const lines = [
@@ -43,26 +49,54 @@ function Game() {
     return null;
   };
 
-  //Handle player
+  // Handle player's move
   const handleClick = (i) => {
-    // Create a shallow copy of the squares array
-    const newSquares = squares.slice();
+    // Create a shallow copy of the history array with the most current length
+    const currentHistory = history.slice(0, stepNumber + 1);
+    // Get the most current object at the end of the history array
+    const currentBoard = currentHistory[currentHistory.length - 1];
+    // Create a shallow copy of the squares array in the current object
+    const newSquares = currentBoard.squares.slice();
     // This function will not work if there's already been a winner or the square already has a value
     if (calculateWinner(newSquares) || newSquares[i]) {
       return;
     }
     // Set the value of the square to be "X" or "O" depending on which player is next
     newSquares[i] = xIsNext ? "X" : "O";
-    // Update the squares array with the new array
-    setSquares((prevSquares) => newSquares);
+    // Add the new squares array as an object to the history array
+    setHistory((prevHistory) =>
+      currentHistory.concat([
+        {
+          squares: newSquares,
+        },
+      ])
+    );
+    // Update step number to the new length of the history array
+    setStepNumber((prevStepNumber) => currentHistory.length);
     // Let the next player plays
     setXIsNext((prevXIsNext) => !prevXIsNext);
   };
 
-  //Restart game
+  // Allow players to undo moves
+  const undoMove = (moveNumber) => {
+    // Update step number to update the history array to the wanted move when the next player plays
+    setStepNumber(moveNumber);
+    // When the step number is even, player is "X". If it's odd, player is "O"
+    setXIsNext(moveNumber % 2 === 0);
+    // Reset the winner if the game was over before undoing moves
+    if (winner) setWinner(null);
+  };
+
+  // Restart game
   const handleRestart = () => {
-    // reset the squares array to its initial value
-    setSquares(Array(9).fill(null));
+    // Reset the history array
+    setHistory([
+      {
+        squares: Array(9).fill(null),
+      },
+    ]);
+    // Reset stepNumber
+    setStepNumber(0);
     // Let X starts the new game
     setXIsNext(true);
   };
@@ -72,7 +106,11 @@ function Game() {
       <h2 className="result">Winner is: {winner ? winner : "N/N"}</h2>
       <div className="game">
         <span className="player">Next player is: {xIsNext ? "X" : "O"}</span>
-        <Board squares={squares} handleClick={handleClick} />
+        <Board
+          squares={history[stepNumber].squares}
+          handleClick={handleClick}
+        />
+        <History history={history} undoMove={undoMove} />
       </div>
       <button onClick={handleRestart} className="restart-btn">
         Restart
